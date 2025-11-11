@@ -250,7 +250,7 @@ jobs:
       
       - name: Send Discord Notification
         if: always()
-        uses: Nitecon/discord-action@v1
+        uses: Nitecon/discord-action@v1  # Use ./ for local testing in this repo
         with:
           webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
           job-status: ${{ job.status }}
