@@ -220,6 +220,48 @@ jobs:
 - 🔀 **Pull Request**: Automatically includes PR number, title, and link
 - 📤 **Push**: Shows commit messages and commit links
 
+### Main Branch Activity Notifications
+
+Monitor all activity on your main branch with automatic Discord notifications:
+
+```yaml
+name: Main Branch Notifications
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types: [opened, closed, reopened, synchronize]
+  release:
+    types: [published, created, edited]
+  issues:
+    types: [opened, closed, reopened]
+  workflow_dispatch:
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord Notification
+        if: always()
+        uses: Nitecon/discord-action@v1
+        with:
+          webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
+          job-status: ${{ job.status }}
+```
+
+**This workflow notifies on:**
+- 📤 **Pushes to main**: Commit messages and links
+- 🔀 **Pull Requests**: PR opened, closed, merged, or updated
+- 🚀 **Releases**: New releases published or edited
+- 🐛 **Issues**: Issues opened, closed, or reopened
+- ▶️ **Manual Triggers**: Workflow dispatch events
+
+Each notification is automatically styled with the appropriate color and emoji based on the event type.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -1,4 +1,4 @@
-name: 'Discord Webhook Notification'
+name: 'Discord Integration'
 description: 'Send detailed GitHub event information to Discord via webhook'
 author: 'Nitecon'
 branding:

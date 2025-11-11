@@ -1,0 +1,26 @@
+name: Main Branch Notifications
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types: [opened, closed, reopened, synchronize]
+  release:
+    types: [published, created, edited]
+  issues:
+    types: [opened, closed, reopened]
+  workflow_dispatch:
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord Notification
+        if: always()
+        uses: Nitecon/discord-action@v1
+        with:
+          webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
+          job-status: ${{ job.status }}
