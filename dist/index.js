@@ -31848,6 +31848,7 @@ async function sendDiscordMessage(webhookUrl, payload) {
   return new Promise((resolve, reject) => {
     const url = new URL(webhookUrl);
     const data = JSON.stringify(payload);
+    const dataBuffer = Buffer.from(data, 'utf8');
 
     const options = {
       hostname: url.hostname,
@@ -31856,7 +31857,7 @@ async function sendDiscordMessage(webhookUrl, payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': data.length
+        'Content-Length': dataBuffer.length
       }
     };
 
@@ -32118,13 +32119,13 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
     if (commitSha !== 'Unknown' && repoUrl) {
       fields.push({
         name: '📝 Commit',
-        value: `[\`${commitSha.substring(0, 7)}\`](${repoUrl}/commit/${commitSha})`,
+        value: `[${commitSha.substring(0, 7)}](${repoUrl}/commit/${commitSha})`,
         inline: true
       });
     } else if (commitSha !== 'Unknown') {
       fields.push({
         name: '📝 Commit',
-        value: `\`${commitSha.substring(0, 7)}\``,
+        value: commitSha.substring(0, 7),
         inline: true
       });
     }
@@ -32186,14 +32187,21 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
     });
   }
 
+  // Validate and truncate fields to Discord limits
+  const validatedFields = fields.map(field => ({
+    name: field.name.substring(0, 256),
+    value: field.value.substring(0, 1024),
+    inline: field.inline
+  }));
+
   return {
-    title,
-    description,
+    title: title.substring(0, 256),
+    description: description.substring(0, 4096),
     color,
-    fields,
+    fields: validatedFields,
     timestamp: new Date().toISOString(),
     footer: {
-      text: `GitHub Actions • ${workflowName}`
+      text: `GitHub Actions • ${workflowName}`.substring(0, 2048)
     }
   };
 }
