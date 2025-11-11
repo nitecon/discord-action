@@ -31887,59 +31887,187 @@ async function sendDiscordMessage(webhookUrl, payload) {
 }
 
 /**
- * Get color based on status
- * @param {string} status - Workflow status
- * @returns {number} - Color in decimal format
+ * Get event-specific metadata including emoji, title, and default color
+ * @param {string} eventName - GitHub event name
+ * @param {object} payload - GitHub event payload
+ * @returns {object} - Event metadata
  */
-function getColorForStatus(status) {
-  const colors = {
-    success: 0x28a745, // Green
-    failure: 0xdc3545, // Red
-    cancelled: 0x6c757d, // Gray
-    skipped: 0xffc107 // Yellow
+function getEventMetadata(eventName, payload) {
+  const metadata = {
+    push: {
+      emoji: '📤',
+      title: 'Push',
+      description: 'Code pushed to repository',
+      color: 0x0366d6 // Blue
+    },
+    pull_request: {
+      emoji: '🔀',
+      title: 'Pull Request',
+      description: payload.action ? `PR ${payload.action}` : 'Pull Request event',
+      color: 0x6f42c1 // Purple
+    },
+    pull_request_review: {
+      emoji: '👀',
+      title: 'PR Review',
+      description: payload.review?.state ? `Review ${payload.review.state}` : 'Pull Request reviewed',
+      color: 0x6f42c1 // Purple
+    },
+    release: {
+      emoji: '🚀',
+      title: 'Release',
+      description: payload.action ? `Release ${payload.action}` : 'Release event',
+      color: 0x17a2b8 // Cyan
+    },
+    issues: {
+      emoji: '🐛',
+      title: 'Issue',
+      description: payload.action ? `Issue ${payload.action}` : 'Issue event',
+      color: 0xfd7e14 // Orange
+    },
+    issue_comment: {
+      emoji: '💬',
+      title: 'Issue Comment',
+      description: 'Comment on issue',
+      color: 0xfd7e14 // Orange
+    },
+    workflow_dispatch: {
+      emoji: '▶️',
+      title: 'Manual Trigger',
+      description: 'Workflow manually triggered',
+      color: 0x0366d6 // Blue
+    },
+    schedule: {
+      emoji: '⏰',
+      title: 'Scheduled Run',
+      description: 'Workflow triggered by schedule',
+      color: 0x0366d6 // Blue
+    },
+    create: {
+      emoji: '✨',
+      title: 'Branch/Tag Created',
+      description: payload.ref_type ? `${payload.ref_type} created` : 'Reference created',
+      color: 0x28a745 // Green
+    },
+    delete: {
+      emoji: '🗑️',
+      title: 'Branch/Tag Deleted',
+      description: payload.ref_type ? `${payload.ref_type} deleted` : 'Reference deleted',
+      color: 0x6c757d // Gray
+    },
+    deployment: {
+      emoji: '🚢',
+      title: 'Deployment',
+      description: 'Deployment event',
+      color: 0x17a2b8 // Cyan
+    },
+    deployment_status: {
+      emoji: '📊',
+      title: 'Deployment Status',
+      description: payload.deployment_status?.state ? `Deployment ${payload.deployment_status.state}` : 'Deployment status update',
+      color: 0x17a2b8 // Cyan
+    },
+    workflow_run: {
+      emoji: '🔄',
+      title: 'Workflow Run',
+      description: payload.action ? `Workflow ${payload.action}` : 'Workflow run event',
+      color: 0x0366d6 // Blue
+    }
   };
-  return colors[status.toLowerCase()] || 0x0366d6; // Default blue
+
+  return metadata[eventName] || {
+    emoji: '🔔',
+    title: eventName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    description: 'GitHub event triggered',
+    color: 0x0366d6 // Default blue
+  };
+}
+
+/**
+ * Get color and styling based on job status
+ * @param {string} status - Job status (success, failure, cancelled)
+ * @returns {object} - Status styling information
+ */
+function getStatusStyling(status) {
+  const styling = {
+    success: {
+      color: 0x28a745, // Green
+      emoji: '✅',
+      label: 'Success'
+    },
+    failure: {
+      color: 0xdc3545, // Red
+      emoji: '❌',
+      label: 'Failed'
+    },
+    cancelled: {
+      color: 0x6c757d, // Gray
+      emoji: '⚠️',
+      label: 'Cancelled'
+    },
+    skipped: {
+      color: 0xffc107, // Yellow
+      emoji: '⏭️',
+      label: 'Skipped'
+    }
+  };
+  
+  return styling[status.toLowerCase()] || styling.success;
 }
 
 /**
  * Build Discord embed from GitHub context
  * @param {object} context - GitHub context
- * @param {string} status - Workflow status
+ * @param {string} jobStatus - Job status (success, failure, cancelled, skipped)
  * @param {string} customTitle - Custom title
  * @param {string} customDescription - Custom description
  * @param {string} customColor - Custom color
  * @param {boolean} includeDetails - Whether to include detailed information
  * @returns {object} - Discord embed object
  */
-function buildEmbed(context, status, customTitle, customDescription, customColor, includeDetails) {
+function buildEmbed(context, jobStatus, customTitle, customDescription, customColor, includeDetails) {
   const { eventName, payload, workflow, runNumber, runId, actor, ref, sha } = context;
   const repository = payload.repository;
   const repoUrl = repository ? repository.html_url : '';
   const repoName = repository ? repository.full_name : '';
   
-  // Determine color
+  // Get event-specific metadata
+  const eventMeta = getEventMetadata(eventName, payload);
+  
+  // Get status styling
+  const statusStyle = getStatusStyling(jobStatus);
+  
+  // Determine color: custom > status-based > event-based
   let color;
   if (customColor) {
     color = parseInt(customColor, 16);
+  } else if (jobStatus.toLowerCase() !== 'success') {
+    // Use status color for failures/cancellations (more important)
+    color = statusStyle.color;
   } else {
-    color = getColorForStatus(status);
+    // Use event color for successful runs
+    color = eventMeta.color;
   }
 
   // Build title
   let title = customTitle;
   if (!title) {
-    const statusEmoji = {
-      success: '✅',
-      failure: '❌',
-      cancelled: '⚠️',
-      skipped: '⏭️'
-    };
-    const emoji = statusEmoji[status.toLowerCase()] || '🔔';
-    title = `${emoji} Workflow ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+    // For failures/errors, emphasize the status
+    if (jobStatus.toLowerCase() !== 'success') {
+      title = `${statusStyle.emoji} ${eventMeta.emoji} ${eventMeta.title} ${statusStyle.label}`;
+    } else {
+      title = `${eventMeta.emoji} ${eventMeta.title}`;
+    }
   }
 
   // Build description
-  let description = customDescription || `Workflow **${workflow}** has ${status.toLowerCase()}`;
+  let description = customDescription;
+  if (!description) {
+    if (jobStatus.toLowerCase() !== 'success') {
+      description = `**${workflow}** workflow ${statusStyle.label.toLowerCase()} • ${eventMeta.description}`;
+    } else {
+      description = `**${workflow}** • ${eventMeta.description}`;
+    }
+  }
 
   // Build fields
   const fields = [];
@@ -32049,7 +32177,7 @@ async function run() {
   try {
     // Get inputs
     const webhookUrl = core.getInput('webhook-url', { required: true });
-    const status = core.getInput('status') || 'success';
+    const jobStatus = core.getInput('job-status') || 'success';
     const customTitle = core.getInput('title');
     const customDescription = core.getInput('description');
     const customColor = core.getInput('color');
@@ -32057,12 +32185,12 @@ async function run() {
 
     core.info('Starting Discord notification...');
     core.info(`Event: ${github.context.eventName}`);
-    core.info(`Status: ${status}`);
+    core.info(`Job Status: ${jobStatus}`);
 
     // Build embed
     const embed = buildEmbed(
       github.context,
-      status,
+      jobStatus,
       customTitle,
       customDescription,
       customColor,

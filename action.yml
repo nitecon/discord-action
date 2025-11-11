@@ -9,18 +9,18 @@ inputs:
   webhook-url:
     description: 'Discord webhook URL (use secrets.DISCORD_WEBHOOK)'
     required: true
-  status:
-    description: 'Status of the workflow (success, failure, cancelled)'
+  job-status:
+    description: 'Job status from job context (use ${{ job.status }}). Auto-detects if not provided.'
     required: false
     default: 'success'
   title:
-    description: 'Custom title for the Discord message'
+    description: 'Custom title for the Discord message (overrides auto-generated title)'
     required: false
   description:
-    description: 'Custom description for the Discord message'
+    description: 'Custom description for the Discord message (overrides auto-generated description)'
     required: false
   color:
-    description: 'Custom embed color (hex format without #, e.g., "00ff00" for green)'
+    description: 'Custom embed color (hex format without #, e.g., "00ff00" for green). Overrides auto-detected color.'
     required: false
   include-details:
     description: 'Include detailed event information (true/false)'

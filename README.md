@@ -1,26 +1,38 @@
 # Discord Webhook Action
 
-A GitHub Action to send detailed event information to Discord via webhooks. This action provides rich, formatted notifications about your GitHub workflows, including repository information, event details, commits, pull requests, and more.
+A GitHub Action to send detailed event information to Discord via webhooks. This action automatically detects the event type and job status to provide rich, contextual notifications with appropriate styling and links.
 
 ## Features
 
-- 🎨 Rich Discord embeds with color-coded status
-- 📦 Detailed repository and workflow information
-- 🔀 Event-specific details (PR, push, release, issues, etc.)
-- ⚙️ Customizable title, description, and colors
-- 🔒 Secure webhook URL handling via secrets
-- 📝 Automatic commit and actor information
-- 🔗 Direct links to workflow runs, commits, and PRs
+- 🎨 **Auto-styled notifications** - Automatically applies colors and emojis based on event type and job status
+- 🔴 **Red borders for failures** - Failed jobs get red embeds with error indicators and workflow links
+- 🟢 **Green borders for success** - Successful jobs get event-specific colors (green for pushes, purple for PRs, etc.)
+- 🔀 **Event-aware messaging** - Customized titles and descriptions for each GitHub event type
+- 📦 **Detailed context** - Repository info, commits, PR details, release info, and more
+- 🔒 **Secure** - Webhook URL handling via GitHub secrets
+- 🔗 **Direct links** - Quick access to workflow runs, commits, PRs, and issues
+
+## Supported Events
+
+The action intelligently handles all GitHub events including:
+- **Push** (📤 Blue) - Code pushes with commit details
+- **Pull Request** (🔀 Purple) - PR opened, closed, merged, etc.
+- **Release** (🚀 Cyan) - Release published, created, edited
+- **Issues** (🐛 Orange) - Issue opened, closed, labeled, etc.
+- **Deployments** (🚢 Cyan) - Deployment events and status
+- **Workflow Dispatch** (▶️ Blue) - Manual workflow triggers
+- **Schedule** (⏰ Blue) - Scheduled workflow runs
+- And many more...
 
 ## Usage
 
-### Basic Usage
+### Simplest Usage - Auto-detect Everything
 
-Add this action to your workflow and provide your Discord webhook URL as a secret:
+The action automatically detects the event type and uses `success` as the default status:
 
 ```yaml
-name: Discord Notification
-on: [push, pull_request]
+name: Notify Discord
+on: [push, pull_request, release]
 
 jobs:
   notify:
@@ -32,7 +44,9 @@ jobs:
           webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
 ```
 
-### Notify on Workflow Success or Failure
+### Recommended - Single Notification with Job Status
+
+Use `if: always()` and pass `${{ job.status }}` to get a single notification regardless of outcome:
 
 ```yaml
 name: CI
@@ -48,28 +62,30 @@ jobs:
       - name: Run tests
         run: npm test
       
-      - name: Notify Discord on success
-        if: success()
+      - name: Notify Discord
+        if: always()
         uses: Nitecon/discord-action@v1
         with:
           webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
-          status: success
-      
-      - name: Notify Discord on failure
-        if: failure()
-        uses: Nitecon/discord-action@v1
-        with:
-          webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
-          status: failure
+          job-status: ${{ job.status }}
 ```
+
+This will automatically:
+- Show **red embed with ❌** if tests fail
+- Show **green/blue embed with ✅** if tests pass
+- Include a link to view the workflow run
 
 ### Custom Title and Description
 
+Override the auto-generated title and description:
+
 ```yaml
 - name: Custom Discord notification
+  if: always()
   uses: Nitecon/discord-action@v1
   with:
     webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
+    job-status: ${{ job.status }}
     title: '🚀 Deployment Complete'
     description: 'Application has been deployed to production'
     color: '00ff00'
@@ -86,15 +102,33 @@ jobs:
     title: 'Build completed'
 ```
 
+### Pull Request Notifications
+
+Automatically styled with purple border and PR details:
+
+```yaml
+name: PR Notification
+on: [pull_request]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Discord
+        uses: Nitecon/discord-action@v1
+        with:
+          webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
+```
+
 ## Inputs
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `webhook-url` | Discord webhook URL (use `secrets.DISCORD_WEBHOOK`) | Yes | - |
-| `status` | Status of the workflow (`success`, `failure`, `cancelled`) | No | `success` |
-| `title` | Custom title for the Discord message | No | Auto-generated |
-| `description` | Custom description for the Discord message | No | Auto-generated |
-| `color` | Custom embed color (hex format without #, e.g., `00ff00`) | No | Status-based |
+| `job-status` | Job status from context (use `${{ job.status }}`). Auto-detects if not provided. | No | `success` |
+| `title` | Custom title for the Discord message (overrides auto-generated) | No | Auto-generated |
+| `description` | Custom description for the Discord message (overrides auto-generated) | No | Auto-generated |
+| `color` | Custom embed color (hex format without #, e.g., `00ff00`). Overrides auto-detected color. | No | Event/status-based |
 | `include-details` | Include detailed event information (`true`/`false`) | No | `true` |
 
 ## Setting Up Discord Webhook
@@ -115,20 +149,29 @@ jobs:
 
 The action automatically includes relevant information based on the GitHub event type:
 
-- **Push events**: Recent commit messages
-- **Pull Request events**: PR number, title, and link
+- **Push events**: Recent commit messages and commit links
+- **Pull Request events**: PR number, title, and direct link to the PR
 - **Release events**: Release tag, name, and link
 - **Issue events**: Issue number, title, and link
+- **Deployment events**: Deployment status and environment
 
-## Color Codes
+## Color Logic
 
-Status-based colors:
-- Success: Green (`28a745`)
-- Failure: Red (`dc3545`)
-- Cancelled: Gray (`6c757d`)
-- Skipped: Yellow (`ffc107`)
+The action intelligently chooses colors based on context:
 
-You can override with custom colors using the `color` input.
+**Job Status Colors** (takes priority for non-success):
+- ❌ **Failure**: Red (`dc3545`) - Highly visible for errors
+- ⚠️ **Cancelled**: Gray (`6c757d`)
+- ⏭️ **Skipped**: Yellow (`ffc107`)
+
+**Event Type Colors** (used for successful runs):
+- 📤 **Push**: Blue (`0366d6`)
+- 🔀 **Pull Request**: Purple (`6f42c1`)
+- 🚀 **Release**: Cyan (`17a2b8`)
+- 🐛 **Issues**: Orange (`fd7e14`)
+- ✅ **Success**: Green (`28a745`)
+
+You can override any color using the `color` input.
 
 ## Examples
 
@@ -162,24 +205,20 @@ jobs:
       - name: Build
         run: npm run build
       
-      - name: Notify Discord on success
-        if: success()
+      # Single notification that handles success/failure automatically
+      - name: Notify Discord
+        if: always()
         uses: Nitecon/discord-action@v1
         with:
           webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
-          status: success
-          title: '✅ Build & Test Successful'
-          description: 'All tests passed and build completed successfully'
-      
-      - name: Notify Discord on failure
-        if: failure()
-        uses: Nitecon/discord-action@v1
-        with:
-          webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
-          status: failure
-          title: '❌ Build & Test Failed'
-          description: 'Please check the workflow logs for details'
+          job-status: ${{ job.status }}
 ```
+
+**What this does:**
+- ✅ **Success**: Shows green/blue embed with event-specific styling
+- ❌ **Failure**: Shows red embed with error indicators and workflow link
+- 🔀 **Pull Request**: Automatically includes PR number, title, and link
+- 📤 **Push**: Shows commit messages and commit links
 
 ## License
 
