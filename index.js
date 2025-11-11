@@ -241,11 +241,19 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
   const fields = [];
   
   if (includeDetails) {
-    fields.push({
-      name: '📦 Repository',
-      value: `[${repoName}](${repoUrl})`,
-      inline: true
-    });
+    if (repoUrl) {
+      fields.push({
+        name: '📦 Repository',
+        value: `[${repoName}](${repoUrl})`,
+        inline: true
+      });
+    } else {
+      fields.push({
+        name: '📦 Repository',
+        value: repoName,
+        inline: true
+      });
+    }
 
     fields.push({
       name: '🔀 Event',
@@ -271,11 +279,19 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
       inline: true
     });
 
-    fields.push({
-      name: '📝 Commit',
-      value: commitSha !== 'Unknown' ? `[\`${commitSha.substring(0, 7)}\`](${repoUrl}/commit/${commitSha})` : 'N/A',
-      inline: true
-    });
+    if (commitSha !== 'Unknown' && repoUrl) {
+      fields.push({
+        name: '📝 Commit',
+        value: `[\`${commitSha.substring(0, 7)}\`](${repoUrl}/commit/${commitSha})`,
+        inline: true
+      });
+    } else if (commitSha !== 'Unknown') {
+      fields.push({
+        name: '📝 Commit',
+        value: `\`${commitSha.substring(0, 7)}\``,
+        inline: true
+      });
+    }
 
     // Add event-specific information
     if (eventName === 'pull_request' && payload.pull_request) {
@@ -290,13 +306,19 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
     if (eventName === 'push' && payload.commits && payload.commits.length > 0) {
       const commitMessages = payload.commits
         .slice(0, 3)
-        .map(c => `• ${c.message.split('\n')[0]}`)
+        .map(c => {
+          const msg = c.message?.split('\n')[0] || 'No message';
+          // Truncate long messages and escape special characters
+          return `• ${msg.substring(0, 100)}`;
+        })
         .join('\n');
-      fields.push({
-        name: '📋 Recent Commits',
-        value: commitMessages || 'No commit messages',
-        inline: false
-      });
+      if (commitMessages) {
+        fields.push({
+          name: '📋 Recent Commits',
+          value: commitMessages,
+          inline: false
+        });
+      }
     }
 
     if (eventName === 'release' && payload.release) {
