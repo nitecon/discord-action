@@ -1,0 +1,32 @@
+name: 'Discord Webhook Notification'
+description: 'Send detailed GitHub event information to Discord via webhook'
+author: 'Nitecon'
+branding:
+  icon: 'message-circle'
+  color: 'blue'
+
+inputs:
+  webhook-url:
+    description: 'Discord webhook URL (use secrets.DISCORD_WEBHOOK)'
+    required: true
+  status:
+    description: 'Status of the workflow (success, failure, cancelled)'
+    required: false
+    default: ${{ job.status }}
+  title:
+    description: 'Custom title for the Discord message'
+    required: false
+  description:
+    description: 'Custom description for the Discord message'
+    required: false
+  color:
+    description: 'Custom embed color (hex format without #, e.g., "00ff00" for green)'
+    required: false
+  include-details:
+    description: 'Include detailed event information (true/false)'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
