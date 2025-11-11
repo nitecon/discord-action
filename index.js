@@ -191,8 +191,12 @@ function getStatusStyling(status) {
 function buildEmbed(context, jobStatus, customTitle, customDescription, customColor, includeDetails) {
   const { eventName, payload, workflow, runNumber, runId, actor, ref, sha } = context;
   const repository = payload.repository;
-  const repoUrl = repository ? repository.html_url : '';
-  const repoName = repository ? repository.full_name : '';
+  const repoUrl = repository?.html_url || '';
+  const repoName = repository?.full_name || 'Unknown Repository';
+  const workflowName = workflow || 'GitHub Actions';
+  const actorName = actor || 'Unknown';
+  const refName = ref || 'Unknown';
+  const commitSha = sha || 'Unknown';
   
   // Get event-specific metadata
   const eventMeta = getEventMetadata(eventName, payload);
@@ -227,9 +231,9 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
   let description = customDescription;
   if (!description) {
     if (jobStatus.toLowerCase() !== 'success') {
-      description = `**${workflow}** workflow ${statusStyle.label.toLowerCase()} • ${eventMeta.description}`;
+      description = `**${workflowName}** workflow ${statusStyle.label.toLowerCase()} • ${eventMeta.description}`;
     } else {
-      description = `**${workflow}** • ${eventMeta.description}`;
+      description = `**${workflowName}** • ${eventMeta.description}`;
     }
   }
 
@@ -251,25 +255,25 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
 
     fields.push({
       name: '👤 Actor',
-      value: actor,
+      value: actorName,
       inline: true
     });
 
     fields.push({
       name: '🌿 Ref',
-      value: ref.replace('refs/heads/', '').replace('refs/tags/', ''),
+      value: refName.replace('refs/heads/', '').replace('refs/tags/', ''),
       inline: true
     });
 
     fields.push({
       name: '🔢 Run Number',
-      value: `#${runNumber}`,
+      value: `#${runNumber || 'N/A'}`,
       inline: true
     });
 
     fields.push({
       name: '📝 Commit',
-      value: `[\`${sha.substring(0, 7)}\`](${repoUrl}/commit/${sha})`,
+      value: commitSha !== 'Unknown' ? `[\`${commitSha.substring(0, 7)}\`](${repoUrl}/commit/${commitSha})` : 'N/A',
       inline: true
     });
 
@@ -315,12 +319,14 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
   }
 
   // Add workflow run link
-  const runUrl = `${repoUrl}/actions/runs/${runId}`;
-  fields.push({
-    name: '🔗 Workflow Run',
-    value: `[View Details](${runUrl})`,
-    inline: false
-  });
+  if (runId && repoUrl) {
+    const runUrl = `${repoUrl}/actions/runs/${runId}`;
+    fields.push({
+      name: '🔗 Workflow Run',
+      value: `[View Details](${runUrl})`,
+      inline: false
+    });
+  }
 
   return {
     title,
@@ -329,7 +335,7 @@ function buildEmbed(context, jobStatus, customTitle, customDescription, customCo
     fields,
     timestamp: new Date().toISOString(),
     footer: {
-      text: `GitHub Actions • ${workflow}`
+      text: `GitHub Actions • ${workflowName}`
     }
   };
 }
@@ -365,6 +371,10 @@ async function run() {
     const payload = {
       embeds: [embed]
     };
+
+    // Debug: Log the payload
+    core.info('Payload to be sent:');
+    core.info(JSON.stringify(payload, null, 2));
 
     // Send to Discord
     await sendDiscordMessage(webhookUrl, payload);
